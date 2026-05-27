@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simulazione Esame di Stato 2D</title>
     <style>
         body {
@@ -16,6 +17,7 @@
             font-family: sans-serif;
             color: white;
             overflow: hidden;
+            touch-action: none; /* Impedisce lo zoom e il pinch fastidioso su mobile */
         }
         .ui-container {
             display: flex;
@@ -44,6 +46,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border: 4px solid #1abc9c;
             border-radius: 4px;
+            display: block;
         }
         #unlockMessage {
             position: absolute;
@@ -68,18 +71,16 @@
             min-height: 20px;
         }
         
-        /* SCHERMATE MENU E VITTORIA */
         .overlay-screen {
             position: absolute;
             top: 0;
             left: 0;
-            width: 808px;
-            height: 508px;
+            width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 4px;
             z-index: 100;
             text-align: center;
             box-sizing: border-box;
@@ -88,11 +89,13 @@
         #mainMenu {
             background: #2c3e50;
             border: 4px solid #1abc9c;
+            border-radius: 4px;
         }
 
         #victoryScreen {
             background: rgba(46, 204, 113, 0.95);
             display: none;
+            border-radius: 4px;
         }
 
         .overlay-screen h2 {
@@ -122,6 +125,102 @@
             transform: scale(1.05);
             background-color: #f39c12;
         }
+
+        /* CONTROLLI TOUCH PER MOBILE */
+        #mobileControls {
+            display: none; /* Nascosti di default su PC */
+            position: fixed;
+            bottom: 15px;
+            left: 0;
+            width: 100%;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 150;
+        }
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            width: 75px;
+            height: 75px;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .touch-btn:active {
+            background: rgba(26, 188, 156, 0.6);
+            border-color: #1abc9c;
+            transform: scale(0.9);
+        }
+        #mobileDirections {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* STILI SPECIFICI PER DISPOSITIVI MOBILI */
+        @media (max-width: 850px) {
+            body {
+                justify-content: flex-start;
+                padding-top: 10px;
+            }
+            .ui-container {
+                width: 95vw;
+            }
+            .ui-container h1 {
+                font-size: 18px !important;
+            }
+            #gradeMessage, #instructionTxt {
+                display: none; /* Nasconde i testi secondari per risparmiare spazio */
+            }
+            .stats-box {
+                font-size: 14px;
+                padding: 3px 10px;
+            }
+            .canvas-container {
+                width: 95vw;
+                height: 58vw; /* Mantiene le proporzioni 16:10 */
+            }
+            canvas {
+                width: 100%;
+                height: 100%;
+            }
+            .overlay-screen h2 { font-size: 24px; }
+            .overlay-screen p { font-size: 13px; margin-bottom: 15px; }
+            .menu-btn { font-size: 16px; padding: 10px 20px; }
+            #mobileControls { display: flex; } /* Mostra i tasti touch */
+        }
+
+        /* OTTIMIZZAZIONE IN MODALITÀ ORIZZONTALE (LANDSCAPE) SU TELEFONO */
+        @media (max-width: 900px) and (orientation: landscape) {
+            body { padding: 0; }
+            .ui-container { display: none; } /* Nasconde totalmente l'interfaccia esterna */
+            .canvas-container {
+                width: 100vw;
+                height: 100vh;
+                border: none;
+            }
+            canvas {
+                width: 100vw;
+                height: 100vh;
+                border: none;
+            }
+            #mobileControls {
+                bottom: 10px;
+                padding: 0 40px;
+            }
+            .touch-btn {
+                width: 65px;
+                height: 65px;
+                font-size: 26px;
+            }
+        }
+
         @keyframes popIn {
             0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
             100% { transform: translateX(-50%) scale(1); opacity: 1; }
@@ -146,7 +245,7 @@
         <canvas id="gameCanvas" width="800" height="500"></canvas>
         
         <div id="mainMenu" class="overlay-screen">
-            <h2> SIMULAZIONE ESAME DI STATO 2D </h2>
+            <h2>📝 SIMULAZIONE ESAME DI STATO 2D 📝</h2>
             <p>Supera le 10 prove per convalidare l'anno scolastico.<br>Raggiungi il traguardo giallo per incrementare il tuo voto sul registro!</p>
             <button class="menu-btn" onclick="startGame()">Inizia la Prova 🔔</button>
         </div>
@@ -159,6 +258,14 @@
     </div>
 
     <p id="instructionTxt">Usa le frecce o A/D per muoverti, Spazio o W per saltare.</p>
+
+    <div id="mobileControls">
+        <div id="mobileDirections">
+            <div class="touch-btn" id="btnLeft">←</div>
+            <div class="touch-btn" id="btnRight">→</div>
+        </div>
+        <div class="touch-btn" id="btnJump">↑</div>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -194,11 +301,7 @@
             "Sei ad un passo dalla lode assoluta!"
         ];
 
-        let lastCheckpoint = {
-            levelIndex: 0,
-            x: 50,
-            y: 400
-        };
+        let lastCheckpoint = { levelIndex: 0, x: 50, y: 400 };
 
         const levels = [
             {
@@ -355,7 +458,7 @@
             
             levelTxt.textContent = `DOMANDA 1`;
             votoTxt.textContent = `VOTO: 0 / 10`;
-            gradeMessage.textContent = `Accedi al registro per iniziare il test!`;
+            if(gradeMessage) gradeMessage.textContent = `Accedi al registro per iniziare il test!`;
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
@@ -377,7 +480,7 @@
             levelTxt.textContent = `DOMANDA ${levelIndex + 1}`;
             votoTxt.textContent = `VOTO: ${levelIndex} / 10`;
             
-            if(!isRespawn) {
+            if(!isRespawn && gradeMessage) {
                 gradeMessage.textContent = `🎯 Voto attuale: ${levelIndex}/10 - ${complimentiVoti[levelIndex]}`;
             }
 
@@ -385,11 +488,7 @@
             worldHeight = data.worldHeight;
             
             if (data.hasCheckpoint && !isRespawn) {
-                lastCheckpoint = {
-                    levelIndex: levelIndex,
-                    x: data.checkpointX,
-                    y: data.checkpointY
-                };
+                lastCheckpoint = { levelIndex: levelIndex, x: data.checkpointX, y: data.checkpointY };
             }
 
             if (isRespawn) {
@@ -408,14 +507,14 @@
 
             if (levelIndex >= 3) {
                 player.hasDoubleJumpUnlocked = true;
-                instructionTxt.innerHTML = "<strong>Abilità Attiva:</strong> Premi due volte SALTO per volare alto!";
+                if(instructionTxt) instructionTxt.innerHTML = "<strong>Abilità Attiva:</strong> Premi due volte SALTO per volare alto!";
                 if(levelIndex === 3 && !isRespawn) {
                     unlockMessage.style.display = 'block';
                     setTimeout(() => { unlockMessage.style.display = 'none'; }, 3000);
                 }
             } else {
                 player.hasDoubleJumpUnlocked = false;
-                instructionTxt.innerHTML = "Usa le frecce o A/D per muoverti, Spazio o W per saltare.";
+                if(instructionTxt) instructionTxt.innerHTML = "Usa le frecce o A/D per muoverti, Spazio o W per saltare.";
                 unlockMessage.style.display = 'none';
             }
             
@@ -424,7 +523,10 @@
             goal.y = data.goal.y;
         }
 
+        // --- GESTIONE CONTROLLI COMPLETA (TASTIERA + TOUCH) ---
         const keys = { left: false, right: false };
+
+        // Tastiera Desktop
         window.addEventListener('keydown', (e) => {
             if (!isGameActive || isGameFinished) return;
             if (e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
@@ -435,6 +537,17 @@
             if (e.key === 'd' || e.key === 'ArrowRight') keys.right = false;
             if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
         });
+
+        // Eventi Touch Mobile (Garantiscono reattività immediata senza delay)
+        const setupMobileButton = (elementId, actionPress, actionRelease) => {
+            const btn = document.getElementById(elementId);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); actionPress(); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); actionRelease(); });
+        };
+
+        setupMobileButton('btnLeft', () => keys.left = true, () => keys.left = false);
+        setupMobileButton('btnRight', () => keys.right = true, () => keys.right = false);
+        setupMobileButton('btnJump', () => handleJumpInput(), () => {});
 
         function handleJumpInput() {
             if (player.grounded) {
@@ -448,6 +561,7 @@
             }
         }
 
+        // --- MOTORE FISICO ---
         const player = {
             x: 0, y: 0, width: 30, height: 40,
             speed: 5, velX: 0, velY: 0,
