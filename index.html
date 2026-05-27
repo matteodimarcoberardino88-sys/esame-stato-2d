@@ -17,7 +17,7 @@
             font-family: sans-serif;
             color: white;
             overflow: hidden;
-            touch-action: none; /* Impedisce lo zoom e il pinch fastidioso su mobile */
+            touch-action: none; /* Impedisce lo zoom fastidioso su mobile */
         }
         .ui-container {
             display: flex;
@@ -130,11 +130,11 @@
         #mobileControls {
             display: none; /* Nascosti di default su PC */
             position: fixed;
-            bottom: 15px;
+            bottom: 30px; /* Alza leggermente i pulsanti dal bordo dello schermo */
             left: 0;
             width: 100%;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 30px;
             box-sizing: border-box;
             z-index: 150;
         }
@@ -163,47 +163,51 @@
             gap: 20px;
         }
 
-        /* STILI SPECIFICI PER DISPOSITIVI MOBILI */
+        /* Modifiche per il centramento su Mobile (Schermi verticali o piccoli) */
         @media (max-width: 850px) {
             body {
-                justify-content: flex-start;
-                padding-top: 10px;
+                justify-content: center; /* Centra verticalmente tutto il blocco su mobile */
+                padding-top: 0px;
             }
             .ui-container {
-                width: 95vw;
+                width: 90vw;
+                margin-bottom: 15px; /* Spazio controllato sotto i punteggi */
             }
             .ui-container h1 {
                 font-size: 18px !important;
+                text-align: left;
             }
             #gradeMessage, #instructionTxt {
-                display: none; /* Nasconde i testi secondari per risparmiare spazio */
+                display: none; /* Rimuove i testi lunghi per non disallineare il centro */
             }
             .stats-box {
                 font-size: 14px;
-                padding: 3px 10px;
+                padding: 4px 12px;
             }
             .canvas-container {
-                width: 95vw;
-                height: 58vw; /* Mantiene le proporzioni 16:10 */
+                width: 90vw;
+                height: 56.25vw; /* Mantiene le proporzioni video perfette in 16:9 */
+                margin-bottom: 110px; /* Crea lo spazio vuoto in basso per non far sovrapporre i tasti touch al gioco */
             }
             canvas {
                 width: 100%;
                 height: 100%;
             }
-            .overlay-screen h2 { font-size: 24px; }
-            .overlay-screen p { font-size: 13px; margin-bottom: 15px; }
-            .menu-btn { font-size: 16px; padding: 10px 20px; }
-            #mobileControls { display: flex; } /* Mostra i tasti touch */
+            .overlay-screen h2 { font-size: 22px; }
+            .overlay-screen p { font-size: 12px; margin-bottom: 15px; }
+            .menu-btn { font-size: 15px; padding: 10px 20px; }
+            #mobileControls { display: flex; } /* Attiva la pulsantiera touch */
         }
 
-        /* OTTIMIZZAZIONE IN MODALITÀ ORIZZONTALE (LANDSCAPE) SU TELEFONO */
+        /* Ottimizzazione automatica in orizzontale (Landscape) per cellulari */
         @media (max-width: 900px) and (orientation: landscape) {
-            body { padding: 0; }
-            .ui-container { display: none; } /* Nasconde totalmente l'interfaccia esterna */
+            body { justify-content: center; }
+            .ui-container { display: none; } /* Nasconde i testi per lasciare spazio solo al gioco */
             .canvas-container {
                 width: 100vw;
                 height: 100vh;
                 border: none;
+                margin-bottom: 0px;
             }
             canvas {
                 width: 100vw;
@@ -211,7 +215,7 @@
                 border: none;
             }
             #mobileControls {
-                bottom: 10px;
+                bottom: 20px;
                 padding: 0 40px;
             }
             .touch-btn {
@@ -523,10 +527,9 @@
             goal.y = data.goal.y;
         }
 
-        // --- GESTIONE CONTROLLI COMPLETA (TASTIERA + TOUCH) ---
+        // --- INPUT ---
         const keys = { left: false, right: false };
 
-        // Tastiera Desktop
         window.addEventListener('keydown', (e) => {
             if (!isGameActive || isGameFinished) return;
             if (e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
@@ -538,7 +541,6 @@
             if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
         });
 
-        // Eventi Touch Mobile (Garantiscono reattività immediata senza delay)
         const setupMobileButton = (elementId, actionPress, actionRelease) => {
             const btn = document.getElementById(elementId);
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); actionPress(); });
@@ -561,7 +563,7 @@
             }
         }
 
-        // --- MOTORE FISICO ---
+        // --- FISICA ---
         const player = {
             x: 0, y: 0, width: 30, height: 40,
             speed: 5, velX: 0, velY: 0,
