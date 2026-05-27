@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulazione Esame di Stato 2D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        .ui-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 800px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .stats-box {
+            background: #34495e;
+            padding: 5px 15px;
+            border-radius: 8px;
+            border: 2px solid #f1c40f;
+            font-size: 20px;
+            font-weight: bold;
+            color: #f1c40f;
+        }
+        .canvas-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+        }
+        canvas {
+            background-color: #34495e;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 4px solid #1abc9c;
+            border-radius: 4px;
+        }
+        #unlockMessage {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 10;
+            animation: popIn 0.5s ease-out;
+        }
+        #gradeMessage {
+            color: #2ecc71;
+            font-weight: bold;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+        
+        /* SCHERMATE MENU E VITTORIA */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 808px;
+            height: 508px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            z-index: 100;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        
+        #mainMenu {
+            background: #2c3e50;
+            border: 4px solid #1abc9c;
+        }
+
+        #victoryScreen {
+            background: rgba(46, 204, 113, 0.95);
+            display: none;
+        }
+
+        .overlay-screen h2 {
+            font-size: 42px;
+            margin: 0 0 10px 0;
+            color: white;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .overlay-screen p {
+            font-size: 20px;
+            margin: 0 0 30px 0;
+            color: #ecf0f1;
+        }
+        .menu-btn {
+            background-color: #f1c40f;
+            color: #2c3e50;
+            border: none;
+            padding: 15px 35px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .menu-btn:hover {
+            transform: scale(1.05);
+            background-color: #f39c12;
+        }
+        @keyframes popIn {
+            0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-container">
+        <div>
+            <h1 style="margin: 0; font-size: 26px;">Simulazione Esame di Stato 2D</h1>
+            <div id="gradeMessage">Accedi al registro per iniziare il test!</div>
+        </div>
+        <div style="display: flex; gap: 15px;">
+            <div id="levelTxt" class="stats-box" style="border-color: #1abc9c; color: #1abc9c;">DOMANDA 1</div>
+            <div id="votoTxt" class="stats-box">VOTO: 0 / 10</div>
+        </div>
+        <div id="unlockMessage">✨ DOPPIO SALTO SBLOCCATO! ✨</div>
+    </div>
+    
+    <div class="canvas-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        
+        <div id="mainMenu" class="overlay-screen">
+            <h2> SIMULAZIONE ESAME DI STATO 2D </h2>
+            <p>Supera le 10 prove per convalidare l'anno scolastico.<br>Raggiungi il traguardo giallo per incrementare il tuo voto sul registro!</p>
+            <button class="menu-btn" onclick="startGame()">Inizia la Prova 🔔</button>
+        </div>
+
+        <div id="victoryScreen" class="overlay-screen">
+            <h2>🎉 DIPLOMA OTTENUTO! 🎉</h2>
+            <p>Hai completato l'esame finale registrando il voto massimo di <strong>10 / 10</strong>!<br>La commissione d'esame si congratula con te.</p>
+            <button class="menu-btn" onclick="backToMenu()">Torna alla Commissione 🏠</button>
+        </div>
+    </div>
+
+    <p id="instructionTxt">Usa le frecce o A/D per muoverti, Spazio o W per saltare.</p>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelTxt = document.getElementById('levelTxt');
+        const votoTxt = document.getElementById('votoTxt');
+        const gradeMessage = document.getElementById('gradeMessage');
+        const unlockMessage = document.getElementById('unlockMessage');
+        const instructionTxt = document.getElementById('instructionTxt');
+        const mainMenu = document.getElementById('mainMenu');
+        const victoryScreen = document.getElementById('victoryScreen');
+
+        let worldWidth = 800;
+        let worldHeight = 500;
+        const camera = { x: 0, y: 0 };
+
+        let currentLevel = 0;
+        let platforms = [];
+        let isGameActive = false;
+        let isGameFinished = false;
+        let goal = { x: 0, y: 0, width: 35, height: 35, color: '#f1c40f' };
+
+        const complimentiVoti = [
+            "Inizio prova, sei a quota zero. Dimostra cosa sai fare!",
+            "Primo blocco superato! Voto in salita!",
+            "Ottimo, stai prendendo un bel ritmo!",
+            "Fisica di base superata con successo!",
+            "Super! Ora che hai il doppio salto si fa sul serio!",
+            "Metà strada fatta, la sufficienza è tua!",
+            "Stai andando alla grande, traiettorie pulite!",
+            "Che stile! Salto eccellente e preciso!",
+            "Manca pochissimo al massimo dei voti!",
+            "Sei ad un passo dalla lode assoluta!"
+        ];
+
+        let lastCheckpoint = {
+            levelIndex: 0,
+            x: 50,
+            y: 400
+        };
+
+        const levels = [
+            {
+                worldWidth: 1400, worldHeight: 500, playerStartX: 50, playerStartY: 400,
+                hasCheckpoint: true, checkpointX: 60, checkpointY: 420,
+                goal: { x: 1250, y: 425 },
+                platforms: [
+                    { x: 0, y: 460, width: 300, height: 40, color: '#27ae60' },
+                    { x: 420, y: 460, width: 150, height: 40, color: '#2ecc71' }, 
+                    { x: 710, y: 460, width: 150, height: 40, color: '#9b59b6' }, 
+                    { x: 970, y: 460, width: 350, height: 40, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 1000, worldHeight: 700, playerStartX: 50, playerStartY: 600,
+                goal: { x: 800, y: 350 },
+                platforms: [
+                    { x: 0, y: 660, width: 200, height: 40, color: '#27ae60' },
+                    { x: 300, y: 610, width: 120, height: 90, color: '#3498db' }, 
+                    { x: 500, y: 560, width: 120, height: 140, color: '#3498db' },
+                    { x: 350, y: 480, width: 100, height: 20, color: '#9b59b6' },  
+                    { x: 150, y: 430, width: 130, height: 20, color: '#e67e22' },
+                    { x: 400, y: 390, width: 120, height: 20, color: '#2ecc71' },
+                    { x: 700, y: 390, width: 200, height: 310, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 1500, worldHeight: 500, playerStartX: 50, playerStartY: 400,
+                goal: { x: 1350, y: 340 },
+                platforms: [
+                    { x: 0, y: 460, width: 200, height: 40, color: '#27ae60' },
+                    { x: 320, y: 430, width: 80, height: 30, color: '#3498db' },
+                    { x: 510, y: 400, width: 80, height: 60, color: '#3498db' },
+                    { x: 700, y: 380, width: 80, height: 80, color: '#9b59b6' },  
+                    { x: 880, y: 410, width: 100, height: 50, color: '#e67e22' }, 
+                    { x: 1060, y: 440, width: 80, height: 20, color: '#2ecc71' },
+                    { x: 1250, y: 380, width: 250, height: 120, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 900, worldHeight: 1400, playerStartX: 100, playerStartY: 1300,
+                goal: { x: 650, y: 150 },
+                platforms: [
+                    { x: 0, y: 1360, width: 900, height: 40, color: '#27ae60' },
+                    { x: 500, y: 1160, width: 150, height: 20, color: '#3498db' },
+                    { x: 200, y: 960, width: 150, height: 20, color: '#3498db' },
+                    { x: 550, y: 780, width: 120, height: 20, color: '#9b59b6' },
+                    { x: 200, y: 600, width: 120, height: 20, color: '#e67e22' },
+                    { x: 500, y: 400, width: 150, height: 20, color: '#3498db' },
+                    { x: 250, y: 260, width: 450, height: 20, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 2000, worldHeight: 600, playerStartX: 50, playerStartY: 500,
+                hasCheckpoint: true, checkpointX: 60, checkpointY: 500,
+                goal: { x: 1800, y: 480 },
+                platforms: [
+                    { x: 0, y: 540, width: 150, height: 60, color: '#27ae60' },
+                    { x: 380, y: 500, width: 100, height: 100, color: '#3498db' },
+                    { x: 750, y: 450, width: 100, height: 150, color: '#3498db' },
+                    { x: 1100, y: 420, width: 150, height: 180, color: '#9b59b6' }, 
+                    { x: 1450, y: 480, width: 100, height: 120, color: '#e67e22' }, 
+                    { x: 1700, y: 520, width: 300, height: 80, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 1600, worldHeight: 1000, playerStartX: 60, playerStartY: 900,
+                goal: { x: 1400, y: 900 },
+                platforms: [
+                    { x: 0, y: 960, width: 250, height: 40, color: '#27ae60' },
+                    { x: 60, y: 780, width: 120, height: 20, color: '#3498db' },
+                    { x: 250, y: 620, width: 120, height: 20, color: '#3498db' },
+                    { x: 480, y: 480, width: 300, height: 20, color: '#27ae60' }, 
+                    { x: 920, y: 420, width: 150, height: 20, color: '#9b59b6' },
+                    { x: 1150, y: 350, width: 400, height: 20, color: '#27ae60' }, 
+                    { x: 1300, y: 550, width: 120, height: 20, color: '#e67e22' },
+                    { x: 1060, y: 700, width: 125, height: 20, color: '#9b59b6' },
+                    { x: 860, y: 840, width: 120, height: 20, color: '#e67e22' },
+                    { x: 1060, y: 940, width: 500, height: 60, color: '#27ae60' } 
+                ]
+            },
+            {
+                worldWidth: 1600, worldHeight: 600, playerStartX: 40, playerStartY: 400,
+                goal: { x: 1350, y: 385 },
+                platforms: [
+                    { x: 0, y: 460, width: 100, height: 40, color: '#27ae60' },
+                    { x: 250, y: 380, width: 40, height: 220, color: '#e74c3c' }, 
+                    { x: 500, y: 300, width: 40, height: 300, color: '#e74c3c' },
+                    { x: 750, y: 340, width: 40, height: 260, color: '#9b59b6' }, 
+                    { x: 1000, y: 390, width: 50, height: 210, color: '#3498db' },
+                    { x: 1250, y: 420, width: 250, height: 180, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 1400, worldHeight: 1400, playerStartX: 1200, playerStartY: 1300,
+                goal: { x: 100, y: 200 },
+                platforms: [
+                    { x: 1100, y: 1360, width: 300, height: 40, color: '#27ae60' },
+                    { x: 850, y: 1180, width: 120, height: 220, color: '#3498db' },
+                    { x: 600, y: 980, width: 120, height: 420, color: '#3498db' },
+                    { x: 350, y: 780, width: 120, height: 620, color: '#9b59b6' },
+                    { x: 550, y: 600, width: 100, height: 20, color: '#e67e22' },
+                    { x: 800, y: 450, width: 100, height: 20, color: '#9b59b6' },
+                    { x: 450, y: 320, width: 120, height: 20, color: '#2ecc71' },
+                    { x: 50, y: 250, width: 200, height: 1150, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 1600, worldHeight: 600, playerStartX: 50, playerStartY: 400,
+                goal: { x: 1400, y: 400 },
+                platforms: [
+                    { x: 0, y: 460, width: 200, height: 40, color: '#27ae60' },
+                    { x: 250, y: 0, width: 450, height: 180, color: '#7f8c8d' }, 
+                    { x: 350, y: 440, width: 100, height: 60, color: '#3498db' },
+                    { x: 600, y: 420, width: 100, height: 80, color: '#9b59b6' },
+                    { x: 850, y: 0, width: 450, height: 160, color: '#7f8c8d' },
+                    { x: 850, y: 420, width: 100, height: 80, color: '#3498db' },
+                    { x: 1100, y: 440, width: 100, height: 60, color: '#9b59b6' },
+                    { x: 1300, y: 460, width: 300, height: 40, color: '#27ae60' }
+                ]
+            },
+            {
+                worldWidth: 2200, worldHeight: 1200, playerStartX: 50, playerStartY: 1100,
+                goal: { x: 1950, y: 150 },
+                platforms: [
+                    { x: 0, y: 1160, width: 200, height: 40, color: '#27ae60' },
+                    { x: 350, y: 1050, width: 80, height: 20, color: '#3498db' },
+                    { x: 650, y: 940, width: 80, height: 20, color: '#9b59b6' },
+                    { x: 950, y: 830, width: 120, height: 370, color: '#27ae60' }, 
+                    { x: 1250, y: 700, width: 80, height: 20, color: '#e67e22' },
+                    { x: 1500, y: 550, width: 80, height: 20, color: '#9b59b6' },
+                    { x: 1250, y: 400, width: 100, height: 20, color: '#3498db' },
+                    { x: 1500, y: 280, width: 120, height: 20, color: '#2ecc71' },
+                    { x: 1800, y: 200, width: 400, height: 1000, color: '#27ae60' } 
+                ]
+            }
+        ];
+
+        function startGame() {
+            mainMenu.style.display = 'none';
+            victoryScreen.style.display = 'none';
+            isGameActive = true;
+            isGameFinished = false;
+            currentLevel = 0;
+            lastCheckpoint = { levelIndex: 0, x: 50, y: 400 };
+            loadLevel(currentLevel);
+        }
+
+        function backToMenu() {
+            victoryScreen.style.display = 'none';
+            mainMenu.style.display = 'flex';
+            isGameActive = false;
+            isGameFinished = false;
+            
+            levelTxt.textContent = `DOMANDA 1`;
+            votoTxt.textContent = `VOTO: 0 / 10`;
+            gradeMessage.textContent = `Accedi al registro per iniziare il test!`;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function handlePlayerDeath() {
+            currentLevel = lastCheckpoint.levelIndex;
+            loadLevel(currentLevel, true);
+        }
+
+        function loadLevel(levelIndex, isRespawn = false) {
+            if (levelIndex >= levels.length) {
+                isGameFinished = true;
+                votoTxt.textContent = `VOTO: 10 / 10`;
+                victoryScreen.style.display = 'flex';
+                return;
+            }
+            
+            const data = levels[levelIndex];
+            levelTxt.textContent = `DOMANDA ${levelIndex + 1}`;
+            votoTxt.textContent = `VOTO: ${levelIndex} / 10`;
+            
+            if(!isRespawn) {
+                gradeMessage.textContent = `🎯 Voto attuale: ${levelIndex}/10 - ${complimentiVoti[levelIndex]}`;
+            }
+
+            worldWidth = data.worldWidth;
+            worldHeight = data.worldHeight;
+            
+            if (data.hasCheckpoint && !isRespawn) {
+                lastCheckpoint = {
+                    levelIndex: levelIndex,
+                    x: data.checkpointX,
+                    y: data.checkpointY
+                };
+            }
+
+            if (isRespawn) {
+                player.x = lastCheckpoint.x;
+                player.y = lastCheckpoint.y;
+            } else {
+                player.x = data.playerStartX;
+                player.y = data.playerStartY;
+            }
+
+            player.velX = 0;
+            player.velY = 0;
+            player.jumping = false;
+            player.grounded = false;
+            player.canDoubleJump = false;
+
+            if (levelIndex >= 3) {
+                player.hasDoubleJumpUnlocked = true;
+                instructionTxt.innerHTML = "<strong>Abilità Attiva:</strong> Premi due volte SALTO per volare alto!";
+                if(levelIndex === 3 && !isRespawn) {
+                    unlockMessage.style.display = 'block';
+                    setTimeout(() => { unlockMessage.style.display = 'none'; }, 3000);
+                }
+            } else {
+                player.hasDoubleJumpUnlocked = false;
+                instructionTxt.innerHTML = "Usa le frecce o A/D per muoverti, Spazio o W per saltare.";
+                unlockMessage.style.display = 'none';
+            }
+            
+            platforms = data.platforms;
+            goal.x = data.goal.x;
+            goal.y = data.goal.y;
+        }
+
+        const keys = { left: false, right: false };
+        window.addEventListener('keydown', (e) => {
+            if (!isGameActive || isGameFinished) return;
+            if (e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'w' || e.key === 'ArrowUp' || e.key === ' ') handleJumpInput();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'd' || e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
+        });
+
+        function handleJumpInput() {
+            if (player.grounded) {
+                player.jumping = true;
+                player.grounded = false;
+                player.velY = -12;
+                if (player.hasDoubleJumpUnlocked) player.canDoubleJump = true;
+            } else if (player.hasDoubleJumpUnlocked && player.canDoubleJump) {
+                player.velY = -11;
+                player.canDoubleJump = false;
+            }
+        }
+
+        const player = {
+            x: 0, y: 0, width: 30, height: 40,
+            speed: 5, velX: 0, velY: 0,
+            jumping: false, grounded: false,
+            hasDoubleJumpUnlocked: false, canDoubleJump: false,
+            color: '#e74c3c'
+        };
+        const gravity = 0.5;
+        const friction = 0.8;
+
+        function checkCollision(objA, objB) {
+            let vX = (objA.x + (objA.width / 2)) - (objB.x + (objB.width / 2));
+            let vY = (objA.y + (objA.height / 2)) - (objB.y + (objB.height / 2));
+            let hWidths = (objA.width / 2) + (objB.width / 2);
+            let hHeights = (objA.height / 2) + (objB.height / 2);
+            let colDir = null;
+
+            if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {
+                let oX = hWidths - Math.abs(vX);
+                let oY = hHeights - Math.abs(vY);
+                if (oX >= oY) {
+                    if (vY > 0) { colDir = "t"; objA.y += oY; } 
+                    else { colDir = "b"; objA.y -= oY; }
+                } else {
+                    if (vX > 0) { colDir = "l"; objA.x += oX; } 
+                    else { colDir = "r"; objA.x -= oX; }
+                }
+            }
+            return colDir;
+        }
+
+        function isTouching(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function update() {
+            if (!isGameActive || isGameFinished) {
+                requestAnimationFrame(update);
+                return;
+            }
+
+            if (keys.right && player.velX < player.speed) player.velX++;
+            if (keys.left && player.velX > -player.speed) player.velX--;
+
+            player.velX *= friction;
+            player.velY += gravity;
+            player.x += player.velX;
+            player.y += player.velY;
+
+            if (player.x <= 0) player.x = 0;
+            if (player.x >= worldWidth - player.width) player.x = worldWidth - player.width;
+            if (player.y <= 0) { player.y = 0; player.velY = 0; }
+
+            if (player.y > worldHeight) {
+                handlePlayerDeath();
+            }
+
+            player.grounded = false;
+            for (let i = 0; i < platforms.length; i++) {
+                let dir = checkCollision(player, platforms[i]);
+                if (dir === "l" || dir === "r") player.velX = 0;
+                else if (dir === "b") { 
+                    player.grounded = true; 
+                    player.jumping = false; 
+                    player.velY = 0; 
+                    player.canDoubleJump = false; 
+                }
+                else if (dir === "t") player.velY = 0;
+            }
+            if(player.grounded) player.velY = 0;
+
+            if (isTouching(player, goal)) {
+                currentLevel++;
+                loadLevel(currentLevel);
+            }
+
+            camera.x = player.x - canvas.width / 2;
+            if (camera.x < 0) camera.x = 0;
+            if (camera.x > worldWidth - canvas.width) camera.x = worldWidth - canvas.width;
+
+            camera.y = player.y - canvas.height / 2;
+            if (camera.y < 0) camera.y = 0;
+            if (camera.y > worldHeight - canvas.height) camera.y = worldHeight - canvas.height;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            ctx.fillStyle = goal.color;
+            ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+
+            for (let i = 0; i < platforms.length; i++) {
+                ctx.fillStyle = platforms[i].color;
+                ctx.fillRect(platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height);
+            }
+
+            const currentLevelData = levels[currentLevel];
+            if (currentLevelData && currentLevelData.hasCheckpoint) {
+                ctx.fillStyle = '#3498db'; 
+                ctx.fillRect(currentLevelData.checkpointX, currentLevelData.checkpointY - 30, 6, 30);
+                ctx.fillStyle = '#2ecc71'; 
+                ctx.beginPath();
+                ctx.moveTo(currentLevelData.checkpointX + 6, currentLevelData.checkpointY - 30);
+                ctx.lineTo(currentLevelData.checkpointX + 25, currentLevelData.checkpointY - 22);
+                ctx.lineTo(currentLevelData.checkpointX + 6, currentLevelData.checkpointY - 15);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            ctx.restore();
+            requestAnimationFrame(update);
+        }
+
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
